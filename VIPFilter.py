@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+import os
 import httplib2
 import gflags
 import operator
@@ -81,7 +81,7 @@ def GetThread(service, user_id, thread_id):
 	except errors.HttpError, error:
 		print 'An error occurred: %s' % error
 
-@app.route("/vip", methods=['POST'])
+@app.route("/", methods=['POST'])
 def vipAlgorithm():
 	print(request.form)
 	print(request.form.keys)
@@ -149,6 +149,6 @@ def vipAlgorithm():
 	            z = x
 	            list.append(x)
 	return jsonify(results = list)
-if __name__ == "__main__":
-	app.debug = True
-	app.run()
+#if __name__ == "__main__":
+#	app.debug = True
+#	app.run()

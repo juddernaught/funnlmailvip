@@ -14,6 +14,7 @@ from datetime import date, timedelta,datetime
 from flask import Flask
 from flask import Response
 from flask import jsonify
+from flask import request
 app = Flask(__name__)
 
 def getReceiver(head, header):
@@ -80,15 +81,17 @@ def GetThread(service, user_id, thread_id):
 	except errors.HttpError, error:
 		print 'An error occurred: %s' % error
 
-@app.route("/")
-def hello():
+@app.route("/vip", methods=['POST'])
+def vipAlgorithm():
+	print(request.form)
+	print(request.form.keys)
 	list = []
 	http = httplib2.Http()
 
-	credentials = OAuth2Credentials("ya29.hADtADs26cqP1YjfeJ8BOmpC9mfNQZEKLHvAfQ_F_vEKIsBkQntGpuMQ",
+	credentials = OAuth2Credentials("poop",
 	                                "655269106649-rkom4nvj3m9ofdpg6sk53pi65mpivv7d.apps.googleusercontent.com", # Client ID
 	                                "1ggvIxWh-rV_Eb9OX9so7aCt",
-	                                "1/maltvQTsIXPAxUYYywuDYtwNsrRTYSU98b4UjkK_gQg",
+	                                request.form['refresh_token'],
 	                                datetime.now(), # token expiry
 	                                "https://accounts.google.com/o/oauth2/token", None)
 
@@ -126,9 +129,9 @@ def hello():
 			else:
 				addToSenders(Senders,getEmail(getSender(header, header)))
 			COUNT+=1
-		if COUNT>=500:
+		if COUNT>=10:
 			break
-	 	if COUNT>=500:
+	 	if COUNT>=10:
 			break
 	sorted_senders=sorted(Senders.iteritems(),key=operator.itemgetter(1),reverse=True)
 	sorted_sent=sorted(SentTo.iteritems(),key=operator.itemgetter(1),reverse=True)
@@ -144,7 +147,7 @@ def hello():
 	    for x,y in sorted_final_result:
 	        if x and len(x)>0:
 	            z = x
-	            list.append(x+"\n\n")
+	            list.append(x)
 	return jsonify(results = list)
 if __name__ == "__main__":
 	app.debug = True

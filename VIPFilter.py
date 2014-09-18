@@ -81,7 +81,7 @@ def GetThread(service, user_id, thread_id):
 	except errors.HttpError, error:
 		print 'An error occurred: %s' % error
 
-@app.route("/", methods=['POST'])
+@app.route("/vip", methods=['POST'])
 def vipAlgorithm():
 	print(request.form)
 	print(request.form.keys)

@@ -11,13 +11,17 @@ from oauth2client.file import Storage
 from oauth2client.tools import run
 from oauth2client.client import OAuth2Credentials
 from datetime import date, timedelta,datetime
+from flask import Flask
+from flask import Response
+from flask import jsonify
+app = Flask(__name__)
 
-def getReceiver(head):
+def getReceiver(head, header):
 	for i in range(0,len(head)):
 		subheader=header[i]
 		if (subheader['name']=="To"):
 			return subheader['value']
-def getSender(head):
+def getSender(head, header):
 	for i in range(0,len(head)):
 		subheader=header[i]
 		if (subheader['name']=="From"):
@@ -35,16 +39,16 @@ def addToSent(SentTo,sent):
         SentTo[sent]=1
 		
 def getEmail(sender):
- if sender :
-        start=sender.find('<')
-        if start==-1:
-            return ""
-        else:
-            end=sender.find('>',start)
-            if(end==-1):
-                return ""
-            else:
-                return sender[start+1:end]
+	if sender:
+		start=sender.find('<')
+		if start==-1:
+			return ""
+		else:
+			end=sender.find('>',start)
+			if(end==-1):
+				return ""
+			else:
+				return sender[start+1:end]
 def getPastDate():
     days=30
     d=date.today()-timedelta(days=days)
@@ -76,66 +80,72 @@ def GetThread(service, user_id, thread_id):
 	except errors.HttpError, error:
 		print 'An error occurred: %s' % error
 
+@app.route("/")
+def hello():
+	list = []
+	http = httplib2.Http()
 
-http = httplib2.Http()
+	credentials = OAuth2Credentials("ya29.hADtADs26cqP1YjfeJ8BOmpC9mfNQZEKLHvAfQ_F_vEKIsBkQntGpuMQ",
+	                                "655269106649-rkom4nvj3m9ofdpg6sk53pi65mpivv7d.apps.googleusercontent.com", # Client ID
+	                                "1ggvIxWh-rV_Eb9OX9so7aCt",
+	                                "1/maltvQTsIXPAxUYYywuDYtwNsrRTYSU98b4UjkK_gQg",
+	                                datetime.now(), # token expiry
+	                                "https://accounts.google.com/o/oauth2/token", None)
 
-credentials = OAuth2Credentials("ya29.hADtADs26cqP1YjfeJ8BOmpC9mfNQZEKLHvAfQ_F_vEKIsBkQntGpuMQ",
-                                "655269106649-rkom4nvj3m9ofdpg6sk53pi65mpivv7d.apps.googleusercontent.com", # Client ID
-                                "1ggvIxWh-rV_Eb9OX9so7aCt",
-                                "1/maltvQTsIXPAxUYYywuDYtwNsrRTYSU98b4UjkK_gQg",
-                                datetime.now(), # token expiry
-                                "https://accounts.google.com/o/oauth2/token", None)
+	print(credentials)
 
-print(credentials)
+	# Authorize the httplib2.Http object with our credentials
+	http = credentials.authorize(http)
 
-# Authorize the httplib2.Http object with our credentials
-http = credentials.authorize(http)
+	# Build the Gmail service from discovery
+	service = build('gmail', 'v1', http=http)
 
-# Build the Gmail service from discovery
-service = build('gmail', 'v1', http=http)
-
-# Retrieve a page of threads
-threads = service.users().threads().list(userId='me').execute()
-# Print ID for each thread
-Senders={}
-SentTo={}
-COUNT=0
-qry="-in:chats after:"+getPastDate()
-ThreadList=ListThreadsMatchingQuery(service,'me',qry)
-for j in range(0,len(ThreadList)):
-	id=ThreadList[j]['id']
-	Thread=GetThread(service,'me',id)
-	for x in range(0,len(Thread['messages'])):
-		header=Thread['messages'][x]['payload']['headers']
-		if 'labelIds' in Thread['messages'][x]: 
-			labelid=Thread['messages'][x]['labelIds']
-			if "SENT" in labelid:
-				receivers=getReceiver(header)
-				if receivers:
-					rlist=receivers.split(",")
-					for name in rlist:
-						addToSent(SentTo,getEmail(name))   
+	# Retrieve a page of threads
+	threads = service.users().threads().list(userId='me').execute()
+	# Print ID for each thread
+	Senders={}
+	SentTo={}
+	COUNT=0
+	qry="-in:chats after:"+getPastDate()
+	ThreadList=ListThreadsMatchingQuery(service,'me',qry)
+	for j in range(0,len(ThreadList)):
+		id=ThreadList[j]['id']
+		Thread=GetThread(service,'me',id)
+		for x in range(0,len(Thread['messages'])):
+			header=Thread['messages'][x]['payload']['headers']
+			if 'labelIds' in Thread['messages'][x]: 
+				labelid=Thread['messages'][x]['labelIds']
+				if "SENT" in labelid:
+					receivers=getReceiver(header, header)
+					if receivers:
+						rlist=receivers.split(",")
+						for name in rlist:
+							addToSent(SentTo,getEmail(name))   
+				else:
+					addToSenders(Senders,getEmail(getSender(header, header)))
 			else:
-				addToSenders(Senders,getEmail(getSender(header)))
-		else:
-			addToSenders(Senders,getEmail(getSender(header)))
-		COUNT+=1
-	if COUNT>=500:
-		break
- 	if COUNT>=500:
-		break
-sorted_senders=sorted(Senders.iteritems(),key=operator.itemgetter(1),reverse=True)
-sorted_sent=sorted(SentTo.iteritems(),key=operator.itemgetter(1),reverse=True)
-fr=open("Senders.txt",'w')
-for WEIGHT in [2]:
-    FinalResult=Senders     
-    for x,y in SentTo.iteritems():
-        try:
-            FinalResult[x]+=WEIGHT*y
-        except:
-            FinalResult[x]=WEIGHT*y
-    sorted_final_result=sorted(FinalResult.iteritems(),key=operator.itemgetter(1),reverse=True)
-    for x,y in sorted_final_result:
-        if x and len(x)>0:
-            fr.write(x+"\n\n")
-fr.close()
+				addToSenders(Senders,getEmail(getSender(header, header)))
+			COUNT+=1
+		if COUNT>=500:
+			break
+	 	if COUNT>=500:
+			break
+	sorted_senders=sorted(Senders.iteritems(),key=operator.itemgetter(1),reverse=True)
+	sorted_sent=sorted(SentTo.iteritems(),key=operator.itemgetter(1),reverse=True)
+	#fr=open("Senders.txt",'w')
+	for WEIGHT in [2]:
+	    FinalResult=Senders     
+	    for x,y in SentTo.iteritems():
+	        try:
+	            FinalResult[x]+=WEIGHT*y
+	        except:
+	            FinalResult[x]=WEIGHT*y
+	    sorted_final_result=sorted(FinalResult.iteritems(),key=operator.itemgetter(1),reverse=True)
+	    for x,y in sorted_final_result:
+	        if x and len(x)>0:
+	            z = x
+	            list.append(x+"\n\n")
+	return jsonify(results = list)
+if __name__ == "__main__":
+	app.debug = True
+	app.run()
